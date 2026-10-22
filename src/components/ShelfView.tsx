@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { Status, UserBook } from '../lib/types';
-import { Cover, StatusPill } from './ui';
+import { Cover, StatusPill, Stars } from './ui';
 
 type Filter = 'all' | Status;
+type ViewMode = 'grid' | 'list';
+type SortKey = 'added_desc' | 'added_asc' | 'title' | 'author';
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'Semua' },
@@ -10,6 +12,30 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'want', label: '📋 Nak baca' },
   { value: 'finished', label: '✅ Dah habis' },
 ];
+
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: 'added_desc', label: 'Terbaru ditambah' },
+  { value: 'added_asc', label: 'Paling lama ditambah' },
+  { value: 'title', label: 'Tajuk (A–Z)' },
+  { value: 'author', label: 'Penulis (A–Z)' },
+];
+
+// Simpan pilihan paparan dalam browser (keutamaan peribadi, bukan data penting)
+function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v && (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* abaikan jika storan disekat */
+  }
+}
 
 export default function ShelfView({
   books,
@@ -24,6 +50,10 @@ export default function ShelfView({
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  const [view, setView] = useState<ViewMode>(() => readPref('mebooks-view', ['grid', 'list'] as const, 'grid'));
+  const [sort, setSort] = useState<SortKey>(() =>
+    readPref('mebooks-sort', ['added_desc', 'added_asc', 'title', 'author'] as const, 'added_desc'),
+  );
 
   const counts = useMemo(
     () => ({
@@ -36,7 +66,7 @@ export default function ShelfView({
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return books.filter((b) => {
+    const filtered = books.filter((b) => {
       if (filter !== 'all' && b.status !== filter) return false;
       if (!q) return true;
       return (
@@ -45,7 +75,38 @@ export default function ShelfView({
         b.book.genre.toLowerCase().includes(q)
       );
     });
-  }, [books, filter, query]);
+
+    const byTime = (a: UserBook, b: UserBook) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    const byTitle = (a: UserBook, b: UserBook) => a.book.title.localeCompare(b.book.title, 'ms', { sensitivity: 'base' });
+    const byAuthor = (a: UserBook, b: UserBook) =>
+      (a.book.authors || '￿').localeCompare(b.book.authors || '￿', 'ms', { sensitivity: 'base' }) || byTitle(a, b);
+
+    const sorted = [...filtered];
+    switch (sort) {
+      case 'added_desc':
+        sorted.sort((a, b) => byTime(b, a));
+        break;
+      case 'added_asc':
+        sorted.sort(byTime);
+        break;
+      case 'title':
+        sorted.sort(byTitle);
+        break;
+      case 'author':
+        sorted.sort(byAuthor);
+        break;
+    }
+    return sorted;
+  }, [books, filter, query, sort]);
+
+  const changeView = (v: ViewMode) => {
+    setView(v);
+    writePref('mebooks-view', v);
+  };
+  const changeSort = (s: SortKey) => {
+    setSort(s);
+    writePref('mebooks-sort', s);
+  };
 
   if (books.length === 0) {
     return (
@@ -82,24 +143,55 @@ export default function ShelfView({
 
       <div className="space-y-3">
         <input className="input" placeholder="Cari tajuk, penulis, genre…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                filter === f.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-slate-300'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="-mx-4 flex flex-1 gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            {FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                  filter === f.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-slate-300'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <select
+            aria-label="Susun ikut"
+            value={sort}
+            onChange={(e) => changeSort(e.target.value as SortKey)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+
+          <div className="flex rounded-xl bg-slate-100 p-1 text-sm" role="group" aria-label="Paparan">
+            {(['grid', 'list'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => changeView(v)}
+                aria-pressed={view === v}
+                className={`rounded-lg px-3 py-1.5 font-medium transition ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                {v === 'grid' ? '▦ Grid' : '☰ Senarai'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {visible.length === 0 ? (
         <p className="py-10 text-center text-sm text-slate-500">Tiada buku sepadan dengan carian.</p>
-      ) : (
+      ) : view === 'grid' ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {visible.map((ub) => {
             const pct = ub.page_count ? Math.min(100, Math.round((ub.current_page / ub.page_count) * 100)) : 0;
@@ -125,6 +217,30 @@ export default function ShelfView({
             );
           })}
         </div>
+      ) : (
+        <ul className="card divide-y divide-slate-100 overflow-hidden">
+          {visible.map((ub) => {
+            const pct = ub.page_count ? Math.min(100, Math.round((ub.current_page / ub.page_count) * 100)) : 0;
+            return (
+              <li key={ub.id}>
+                <button onClick={() => onOpen(ub)} className="flex w-full items-center gap-3 p-3 text-left hover:bg-slate-50 sm:gap-4 sm:p-4">
+                  <Cover src={ub.book.cover_url} title={ub.book.title} className="h-16 w-11 flex-shrink-0 rounded sm:h-20 sm:w-14" />
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 font-semibold text-slate-900">{ub.book.title}</p>
+                    <p className="line-clamp-1 text-sm text-slate-500">{ub.book.authors || 'Penulis tidak diketahui'}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <StatusPill status={ub.status} />
+                      {ub.status === 'reading' && ub.page_count > 0 && (
+                        <span className="text-xs text-slate-400">{ub.current_page}/{ub.page_count} ({pct}%)</span>
+                      )}
+                      {ub.rating ? <Stars value={ub.rating} /> : null}
+                    </div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

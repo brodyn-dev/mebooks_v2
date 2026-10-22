@@ -138,6 +138,26 @@ export async function updateMyProfile(
   unwrap(await supabase.from('profiles').update(patch).eq('id', id));
 }
 
+/** Semua akaun (kecuali sendiri), disusun ikut username. */
+export async function fetchAllProfiles(selfId: string): Promise<Profile[]> {
+  return unwrap(
+    await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', selfId)
+      .order('username', { ascending: true })
+      .limit(500),
+  ) as Profile[];
+}
+
+/** ID semua orang yang saya ikut. */
+export async function fetchMyFollowingIds(selfId: string): Promise<string[]> {
+  const rows = unwrap(
+    await supabase.from('follows').select('following_id').eq('follower_id', selfId),
+  ) as { following_id: string }[];
+  return rows.map((r) => r.following_id);
+}
+
 export async function searchProfiles(query: string, selfId: string): Promise<Profile[]> {
   const q = query.trim().toLowerCase().replace(/[%_,()*]/g, '');
   if (!q) return [];

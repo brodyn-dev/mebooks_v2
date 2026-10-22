@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { fetchAllNotes } from '../lib/api';
 import type { Status, UserBook } from '../lib/types';
 import { Cover, StatusPill, Stars } from './ui';
 import { downloadShelfCsv } from '../lib/csv';
@@ -43,17 +44,19 @@ export default function ShelfView({
   onOpen,
   onAdd,
   readOnly = false,
-  exportName,
+  exportUser,
 }: {
   books: UserBook[];
   onOpen: (ub: UserBook) => void;
   onAdd?: () => void;
   readOnly?: boolean;
-  /** Diisi hanya untuk rak sendiri: nama fail eksport */
-  exportName?: string;
+  /** Diisi hanya untuk rak sendiri: pemilik untuk eksport */
+  exportUser?: { id: string; username: string };
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  const [withNotes, setWithNotes] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewMode>(() => readPref('mebooks-view', ['grid', 'list'] as const, 'grid'));
   const [sort, setSort] = useState<SortKey>(() =>
     readPref('mebooks-sort', ['added_desc', 'added_asc', 'title', 'author'] as const, 'added_desc'),
@@ -102,6 +105,20 @@ export default function ShelfView({
     }
     return sorted;
   }, [books, filter, query, sort]);
+
+  const doExport = async () => {
+    if (!exportUser) return;
+    setExporting(true);
+    try {
+      const notes = withNotes ? await fetchAllNotes(exportUser.id) : undefined;
+      downloadShelfCsv(books, exportUser.username, notes);
+    } catch (err) {
+      console.error('Eksport gagal', err);
+      window.alert('Eksport gagal. Cuba lagi.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const changeView = (v: ViewMode) => {
     setView(v);
@@ -179,14 +196,21 @@ export default function ShelfView({
           </select>
 
           <div className="flex items-center gap-2">
-            {exportName && (
-              <button
-                onClick={() => downloadShelfCsv(books, exportName)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                title="Muat turun rak sebagai fail CSV (boleh buka dalam Excel)"
-              >
-                ⬇ CSV
-              </button>
+            {exportUser && (
+              <>
+                <label className="flex items-center gap-1.5 text-xs text-slate-500" title="Nota peribadi hanya untuk awak. Hanya masuk dalam fail yang awak muat turun.">
+                  <input type="checkbox" className="h-3.5 w-3.5 accent-indigo-600" checked={withNotes} onChange={(e) => setWithNotes(e.target.checked)} />
+                  Nota peribadi
+                </label>
+                <button
+                  onClick={doExport}
+                  disabled={exporting}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  title="Muat turun rak sebagai fail CSV (boleh buka dalam Excel)"
+                >
+                  {exporting ? '…' : '⬇ CSV'}
+                </button>
+              </>
             )}
           <div className="flex rounded-xl bg-slate-100 p-1 text-sm" role="group" aria-label="Paparan">
             {(['grid', 'list'] as const).map((v) => (

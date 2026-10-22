@@ -10,6 +10,7 @@ import FeedView from './components/FeedView';
 import ProfileView from './components/ProfileView';
 import SearchPeople from './components/SearchPeople';
 import ShelfView from './components/ShelfView';
+import ImportModal from './components/ImportModal';
 import { ErrorBox, Spinner } from './components/ui';
 
 type Tab = 'shelf' | 'feed' | 'search' | 'me';
@@ -40,6 +41,7 @@ function MainApp() {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [openBook, setOpenBook] = useState<UserBook | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // Naik bila butiran buku ditutup supaya profil dimuat semula (progres terkini)
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -127,7 +129,14 @@ function MainApp() {
                 {shelf === null && !shelfError ? (
                   <Spinner />
                 ) : (
-                  <ShelfView books={shelf ?? []} onOpen={setOpenBook} onAdd={() => setAddOpen(true)} />
+                  <>
+                    <div className="mb-4 flex justify-end">
+                      <button onClick={() => setImportOpen(true)} className="btn-ghost !py-2 text-sm" title="Bawa rak dari Goodreads">
+                        ⬆ Import dari Goodreads
+                      </button>
+                    </div>
+                    <ShelfView books={shelf ?? []} onOpen={setOpenBook} onAdd={() => setAddOpen(true)} exportUser={profile ? { id: profile.id, username: profile.username } : undefined} />
+                  </>
                 )}
               </>
             )}
@@ -170,6 +179,14 @@ function MainApp() {
             setProfileId(null);
           }}
           onClose={() => setAddOpen(false)}
+        />
+      )}
+
+      {importOpen && userId && (
+        <ImportModal
+          userId={userId}
+          onFinished={() => void loadShelf()}
+          onClose={() => setImportOpen(false)}
         />
       )}
 

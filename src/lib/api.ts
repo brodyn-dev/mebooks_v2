@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { ActivityEvent, Book, Profile, ReadingLog, UserBook } from './types';
 import type { BookLookup } from './lookup';
+import type { ImportRow } from './goodreads';
 
 const USER_BOOK_SELECT = '*, book:books(*)';
 
@@ -112,6 +113,14 @@ export async function logProgress(userBookId: string, page: number): Promise<Use
     await supabase.rpc('log_progress', { p_user_book_id: userBookId, p_page: page }),
   ) as Omit<UserBook, 'book'>;
   return fetchUserBookById(row.id);
+}
+
+/** Semua nota peribadi saya, dipetakan ikut user_book_id (untuk eksport). */
+export async function fetchAllNotes(userId: string): Promise<Record<string, string>> {
+  const rows = unwrap(
+    await supabase.from('book_notes').select('user_book_id, body').eq('user_id', userId),
+  ) as { user_book_id: string; body: string }[];
+  return Object.fromEntries(rows.map((r) => [r.user_book_id, r.body]));
 }
 
 export async function fetchReadingLogs(userBookId: string): Promise<ReadingLog[]> {
@@ -236,4 +245,164 @@ export async function fetchFeed(): Promise<ActivityEvent[]> {
       .order('created_at', { ascending: false })
       .limit(50),
   ) as unknown as ActivityEvent[];
+}
+
+
+// ---------- Import Goodreads ----------
+
+function chunks<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+export interface ImportResult {
+  added: number;
+  alreadyInShelf: number;
+  failed: number;
+}
+
+/**
+ * Import baris Goodreads ke rak user.
+ * - Buku dicari/ dicipta dalam katalog ikut ISBN.
+ * - Rekod sejarah dimasukkan terus (tanpa event feed), supaya feed tak dibanjiri.
+ * - Buku dimasukkan sebagai peribadi (tidak awam) sehingga user tukar sendiri.
+ */
+export async function importGoodreadsRows(
+  userId: string,
+  rows: ImportRow[],
+  onProgress: (done: number, total: number) => void,
+): Promise<ImportResult> {
+  const total = rows.length;
+  let done = 0;
+  const tick = (n: number) => {
+    done += n;
+    onProgress(Math.min(done, total), total);
+  };
+
+  // 1) Katalog: cari buku sedia ada ikut ISBN
+  const isbns = [...new Set(rows.map((r) => r.isbn13).filter((x): x is string => !!x))];
+  const bookByIsbn = new Map<string, string>();
+  for (const part of chunks(isbns, 100)) {
+    const res = await supabase.from('books').select('id, isbn13').in('isbn13', part);
+    for (const b of unwrap(res) as { id: string; isbn13: string }[]) bookByIsbn.set(b.isbn13, b.id);
+  }
+
+  // 2) Cipta buku baru yang belum ada (ikut ISBN, unik)
+  const seen = new Set<string>();
+  const newBooks = rows.filter((r) => {
+    if (!r.isbn13 || bookByIsbn.has(r.isbn13) || seen.has(r.isbn13)) return false;
+    seen.add(r.isbn13);
+    return true;
+  });
+  for (const part of chunks(newBooks, 100)) {
+    const res = await supabase
+      .from('books')
+      .insert(
+        part.map((r) => ({
+          isbn13: r.isbn13,
+          title: r.title,
+          authors: r.authors,
+          publisher: r.publisher,
+          published_year: r.published_year,
+          cover_url: '',
+          description: '',
+          genre: '',
+          page_count: r.page_count,
+          created_by: userId,
+        })),
+      )
+      .select('id, isbn13');
+    for (const b of unwrap(res) as { id: string; isbn13: string }[]) bookByIsbn.set(b.isbn13, b.id);
+  }
+
+  // 3) Buku tanpa ISBN: cipta satu-satu
+  const noIsbn = rows.filter((r) => !r.isbn13);
+  const bookIdByRow = new Map<number, string>();
+  for (const r of rows) if (r.isbn13 && bookByIsbn.has(r.isbn13)) bookIdByRow.set(r.line, bookByIsbn.get(r.isbn13)!);
+  for (const r of noIsbn) {
+    const res = await supabase
+      .from('books')
+      .insert({
+        title: r.title,
+        authors: r.authors,
+        publisher: r.publisher,
+        published_year: r.published_year,
+        page_count: r.page_count,
+        created_by: userId,
+      })
+      .select('id')
+      .single();
+    if (res.data) bookIdByRow.set(r.line, (res.data as { id: string }).id);
+  }
+
+  // 4) Rak sedia ada: jangan tindih
+  const shelf = await fetchShelf(userId);
+  const onShelf = new Set(shelf.map((ub) => ub.book_id));
+
+  let alreadyInShelf = 0;
+  let failed = 0;
+  const toInsert: { row: ImportRow; bookId: string }[] = [];
+  const insertedBooks = new Set<string>();
+  for (const r of rows) {
+    const bookId = bookIdByRow.get(r.line);
+    if (!bookId) {
+      failed++;
+      tick(1);
+      continue;
+    }
+    if (onShelf.has(bookId) || insertedBooks.has(bookId)) {
+      alreadyInShelf++;
+      tick(1);
+      continue;
+    }
+    insertedBooks.add(bookId);
+    toInsert.push({ row: r, bookId });
+  }
+
+  // 5) Masukkan rekod rak (dan sejarah) dalam kelompok
+  let added = 0;
+  const userBookIdByBook = new Map<string, string>();
+  for (const part of chunks(toInsert, 100)) {
+    const res = await supabase
+      .from('user_books')
+      .insert(
+        part.map(({ row, bookId }) => ({
+          user_id: userId,
+          book_id: bookId,
+          status: row.status,
+          current_page: row.current_page,
+          page_count: row.page_count,
+          rating: row.rating,
+          review: row.review,
+          is_public: false,
+          started_at: null,
+          finished_at: row.finished_at,
+          ...(row.added_at ? { created_at: row.added_at } : {}),
+        })),
+      )
+      .select('id, book_id');
+    if (res.error) {
+      failed += part.length;
+    } else {
+      for (const ub of res.data as { id: string; book_id: string }[]) {
+        userBookIdByBook.set(ub.book_id, ub.id);
+        added++;
+      }
+    }
+    tick(part.length);
+  }
+
+  // 6) Nota peribadi (hanya pemilik boleh baca)
+  const notes = toInsert
+    .map(({ row, bookId }) => ({ row, ubId: userBookIdByBook.get(bookId) }))
+    .filter((x): x is { row: ImportRow; ubId: string } => !!x.ubId && !!x.row.note);
+  for (const part of chunks(notes, 100)) {
+    await supabase.from('book_notes').upsert(
+      part.map((n) => ({ user_book_id: n.ubId, user_id: userId, body: n.row.note })),
+    );
+  }
+
+  onProgress(total, total);
+  return { added, alreadyInShelf, failed };
 }

@@ -24,7 +24,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 function SetupScreen() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
+    <div className="flex min-h-dvh items-center justify-center p-6">
       <div className="card max-w-md p-6 text-sm text-slate-700">
         <h1 className="mb-2 text-lg font-bold text-slate-900">Konfigurasi belum lengkap</h1>
         <p>Salin <code>.env.example</code> kepada <code>.env</code> dan isi <code>VITE_SUPABASE_URL</code> serta <code>VITE_SUPABASE_ANON_KEY</code>. Kemudian mulakan semula <code>npm run dev</code>.</p>
@@ -95,7 +95,7 @@ function MainApp() {
   const showProfile = profileId !== null;
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-dvh pb-24">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <button onClick={() => { setProfileId(null); setTab('shelf'); }} className="flex items-center gap-2">
@@ -151,8 +151,8 @@ function MainApp() {
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto grid max-w-5xl grid-cols-4">
+      <nav className="fixed bottom-0 left-0 z-30 w-full border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-4">
           {TABS.map((t) => {
             const active = !showProfile && tab === t.id;
             return (

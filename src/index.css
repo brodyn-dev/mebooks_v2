@@ -5,6 +5,12 @@
   --brand-to: #9333ea;
 }
 
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   background: #f8fafc;
   color: #0f172a;

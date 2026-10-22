@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Status, UserBook } from '../lib/types';
 import { Cover, StatusPill, Stars } from './ui';
+import { downloadShelfCsv } from '../lib/csv';
 
 type Filter = 'all' | Status;
 type ViewMode = 'grid' | 'list';
@@ -42,11 +43,14 @@ export default function ShelfView({
   onOpen,
   onAdd,
   readOnly = false,
+  exportName,
 }: {
   books: UserBook[];
   onOpen: (ub: UserBook) => void;
   onAdd?: () => void;
   readOnly?: boolean;
+  /** Diisi hanya untuk rak sendiri: nama fail eksport */
+  exportName?: string;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
@@ -174,6 +178,16 @@ export default function ShelfView({
             ))}
           </select>
 
+          <div className="flex items-center gap-2">
+            {exportName && (
+              <button
+                onClick={() => downloadShelfCsv(books, exportName)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                title="Muat turun rak sebagai fail CSV (boleh buka dalam Excel)"
+              >
+                ⬇ CSV
+              </button>
+            )}
           <div className="flex rounded-xl bg-slate-100 p-1 text-sm" role="group" aria-label="Paparan">
             {(['grid', 'list'] as const).map((v) => (
               <button
@@ -185,6 +199,7 @@ export default function ShelfView({
                 {v === 'grid' ? '▦ Grid' : '☰ Senarai'}
               </button>
             ))}
+          </div>
           </div>
         </div>
       </div>

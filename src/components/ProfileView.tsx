@@ -172,7 +172,7 @@ export default function ProfileView({
             🔒 Akaun ini privat. Ikut untuk lihat rak dan aktiviti mereka.
           </div>
         ) : (
-          <ShelfView books={shelf} onOpen={onOpenBook} onAdd={isMe ? onAdd : undefined} readOnly={!isMe} />
+          <ShelfView books={shelf} onOpen={onOpenBook} onAdd={isMe ? onAdd : undefined} readOnly={!isMe} exportName={isMe ? profile.username : undefined} />
         )}
       </section>
     </div>

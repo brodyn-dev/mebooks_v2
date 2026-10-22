@@ -48,7 +48,7 @@ export interface ReadingLog {
   created_at: string;
 }
 
-export type ActivityKind = 'started' | 'progress' | 'finished' | 'rated';
+export type ActivityKind = 'started' | 'progress' | 'finished' | 'rated' | 'reviewed';
 
 export interface ActivityEvent {
   id: number;
@@ -57,6 +57,7 @@ export interface ActivityEvent {
   kind: ActivityKind;
   page: number | null;
   rating: number | null;
+  body: string;
   created_at: string;
   profile: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
   book: Pick<Book, 'id' | 'title' | 'authors' | 'cover_url' | 'page_count'>;

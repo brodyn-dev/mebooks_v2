@@ -229,7 +229,7 @@ export async function fetchFeed(): Promise<ActivityEvent[]> {
     await supabase
       .from('activity_events')
       .select(
-        'id, user_id, user_book_id, kind, page, rating, created_at, ' +
+        'id, user_id, user_book_id, kind, page, rating, body, created_at, ' +
           'profile:profiles!activity_events_user_id_fkey(id, username, display_name, avatar_url), ' +
           'book:books!activity_events_book_id_fkey(id, title, authors, cover_url, page_count)',
       )

@@ -52,6 +52,11 @@ export default function FeedView({
                 </button>{' '}
                 <EventText ev={ev} />
               </p>
+              {ev.kind === 'reviewed' && ev.body && (
+                <blockquote className="mt-2 border-l-4 border-purple-200 pl-3 text-sm italic text-slate-600">
+                  “{ev.body}”
+                </blockquote>
+              )}
               <button onClick={() => onOpenBook(ev.user_book_id)} className="mt-2 flex w-full items-center gap-3 rounded-xl bg-slate-50 p-2.5 text-left transition hover:bg-slate-100">
                 <Cover src={ev.book.cover_url} title={ev.book.title} className="h-14 w-10 flex-shrink-0 rounded" />
                 <span className="min-w-0 flex-1">
@@ -83,6 +88,8 @@ function EventText({ ev }: { ev: ActivityEvent }) {
       );
     case 'finished':
       return <span className="text-emerald-600">✅ habis baca</span>;
+    case 'reviewed':
+      return <span className="text-purple-600">💬 tulis review</span>;
     case 'rated':
       return (
         <span className="inline-flex items-center gap-2 text-amber-600">

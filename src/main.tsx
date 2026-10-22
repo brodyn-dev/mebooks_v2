@@ -3,6 +3,13 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
+// Daftar service worker (untuk install sebagai app). Hanya dalam production.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('SW gagal daftar', err));
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

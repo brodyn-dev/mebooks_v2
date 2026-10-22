@@ -181,12 +181,12 @@ export default function ShelfView({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Susun ikut"
             value={sort}
             onChange={(e) => changeSort(e.target.value as SortKey)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 sm:flex-none"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -195,36 +195,35 @@ export default function ShelfView({
             ))}
           </select>
 
-          <div className="flex items-center gap-2">
-            {exportUser && (
-              <>
-                <label className="flex items-center gap-1.5 text-xs text-slate-500" title="Nota peribadi hanya untuk awak. Hanya masuk dalam fail yang awak muat turun.">
-                  <input type="checkbox" className="h-3.5 w-3.5 accent-indigo-600" checked={withNotes} onChange={(e) => setWithNotes(e.target.checked)} />
-                  Nota peribadi
-                </label>
-                <button
-                  onClick={doExport}
-                  disabled={exporting}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                  title="Muat turun rak sebagai fail CSV (boleh buka dalam Excel)"
-                >
-                  {exporting ? '…' : '⬇ CSV'}
-                </button>
-              </>
-            )}
-          <div className="flex rounded-xl bg-slate-100 p-1 text-sm" role="group" aria-label="Paparan">
+          <div className="flex shrink-0 rounded-xl bg-slate-100 p-1 text-sm" role="group" aria-label="Paparan">
             {(['grid', 'list'] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => changeView(v)}
                 aria-pressed={view === v}
-                className={`rounded-lg px-3 py-1.5 font-medium transition ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-medium transition ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
               >
                 {v === 'grid' ? '▦ Grid' : '☰ Senarai'}
               </button>
             ))}
           </div>
-          </div>
+
+          {exportUser && (
+            <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-500" title="Nota peribadi hanya untuk awak. Hanya masuk dalam fail yang awak muat turun.">
+                <input type="checkbox" className="h-3.5 w-3.5 accent-indigo-600" checked={withNotes} onChange={(e) => setWithNotes(e.target.checked)} />
+                Nota peribadi
+              </label>
+              <button
+                onClick={doExport}
+                disabled={exporting}
+                className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                title="Muat turun rak sebagai fail CSV (boleh buka dalam Excel)"
+              >
+                {exporting ? '…' : '⬇ CSV'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

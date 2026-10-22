@@ -170,6 +170,30 @@ export async function fetchFollowState(viewerId: string, targetId: string): Prom
   };
 }
 
+export type MiniProfile = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+
+/** Senarai pengikut: siapa yang follow profil ini. */
+export async function fetchFollowers(profileId: string): Promise<MiniProfile[]> {
+  const res = await supabase
+    .from('follows')
+    .select('profile:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url)')
+    .eq('following_id', profileId)
+    .order('created_at', { ascending: false });
+  if (res.error) throw new Error(res.error.message);
+  return (res.data as unknown as { profile: MiniProfile }[]).map((r) => r.profile);
+}
+
+/** Senarai mengikut: siapa yang profil ini follow. */
+export async function fetchFollowing(profileId: string): Promise<MiniProfile[]> {
+  const res = await supabase
+    .from('follows')
+    .select('profile:profiles!follows_following_id_fkey(id, username, display_name, avatar_url)')
+    .eq('follower_id', profileId)
+    .order('created_at', { ascending: false });
+  if (res.error) throw new Error(res.error.message);
+  return (res.data as unknown as { profile: MiniProfile }[]).map((r) => r.profile);
+}
+
 export async function follow(viewerId: string, targetId: string): Promise<void> {
   unwrap(await supabase.from('follows').insert({ follower_id: viewerId, following_id: targetId }));
 }

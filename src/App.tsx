@@ -117,6 +117,7 @@ function MainApp() {
             onOpenBook={setOpenBook}
             onBack={() => setProfileId(null)}
             onAdd={() => setAddOpen(true)}
+            onOpenProfile={goProfile}
           />
         ) : (
           <>
@@ -135,7 +136,7 @@ function MainApp() {
             )}
             {tab === 'search' && userId && <SearchPeople selfId={userId} onOpenProfile={goProfile} />}
             {tab === 'me' && userId && (
-              <ProfileView key={`me-${userId}-${reloadKey}`} profileId={userId} onOpenBook={setOpenBook} onBack={() => setTab('shelf')} onAdd={() => setAddOpen(true)} />
+              <ProfileView key={`me-${userId}-${reloadKey}`} profileId={userId} onOpenBook={setOpenBook} onBack={() => setTab('shelf')} onAdd={() => setAddOpen(true)} onOpenProfile={goProfile} />
             )}
           </>
         )}

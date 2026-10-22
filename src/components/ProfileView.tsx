@@ -11,6 +11,7 @@ import {
 } from '../lib/api';
 import type { Profile, UserBook } from '../lib/types';
 import ShelfView from './ShelfView';
+import FollowListModal from './FollowListModal';
 import { Avatar, ErrorBox, Spinner } from './ui';
 
 export default function ProfileView({
@@ -18,11 +19,13 @@ export default function ProfileView({
   onOpenBook,
   onBack,
   onAdd,
+  onOpenProfile,
 }: {
   profileId: string;
   onOpenBook: (ub: UserBook) => void;
   onBack: () => void;
   onAdd?: () => void;
+  onOpenProfile: (profileId: string) => void;
 }) {
   const { user, refreshProfile } = useAuth();
   const isMe = user?.id === profileId;
@@ -34,6 +37,7 @@ export default function ProfileView({
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ display_name: '', bio: '', is_private: false });
   const [busy, setBusy] = useState(false);
+  const [listKind, setListKind] = useState<'followers' | 'following' | null>(null);
 
   const load = async () => {
     setError(null);
@@ -110,8 +114,12 @@ export default function ProfileView({
             {profile.bio && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{profile.bio}</p>}
             <div className="mt-3 flex justify-center gap-5 text-sm sm:justify-start">
               <span><strong className="text-slate-900">{shelf.length}</strong> <span className="text-slate-500">buku</span></span>
-              <span><strong className="text-slate-900">{follows?.followers ?? 0}</strong> <span className="text-slate-500">pengikut</span></span>
-              <span><strong className="text-slate-900">{follows?.followingCount ?? 0}</strong> <span className="text-slate-500">mengikut</span></span>
+              <button onClick={() => setListKind('followers')} className="hover:underline">
+                <strong className="text-slate-900">{follows?.followers ?? 0}</strong> <span className="text-slate-500">pengikut</span>
+              </button>
+              <button onClick={() => setListKind('following')} className="hover:underline">
+                <strong className="text-slate-900">{follows?.followingCount ?? 0}</strong> <span className="text-slate-500">mengikut</span>
+              </button>
             </div>
           </div>
           <div className="flex-shrink-0">
@@ -144,6 +152,18 @@ export default function ProfileView({
       </div>
 
       <ErrorBox message={error} />
+
+      {listKind && (
+        <FollowListModal
+          kind={listKind}
+          profileId={profileId}
+          onOpenProfile={(id) => {
+            setListKind(null);
+            onOpenProfile(id);
+          }}
+          onClose={() => setListKind(null)}
+        />
+      )}
 
       <section className="space-y-3">
         <h3 className="font-semibold text-slate-900">{isMe ? 'Rak saya' : 'Rak'}</h3>

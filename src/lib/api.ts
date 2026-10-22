@@ -4,7 +4,7 @@ import type { BookLookup } from './lookup';
 
 const USER_BOOK_SELECT = '*, book:books(*)';
 
-function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
+function unwrap<T>(res: { data: unknown; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
   return res.data as T;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader, IScannerControls } from '@zxing/library';
+import { BrowserMultiFormatReader } from '@zxing/library';
 import { isValidIsbn, toIsbn13 } from '../lib/isbn';
 import { Modal } from './ui';
 
@@ -12,13 +12,14 @@ export default function IsbnScanner({
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const reader = new BrowserMultiFormatReader();
+    readerRef.current = reader;
 
     reader
       .decodeFromConstraints(
@@ -31,16 +32,12 @@ export default function IsbnScanner({
           const isbn13 = toIsbn13(text);
           if (!isbn13) return;
           cancelled = true;
-          controlsRef.current?.stop();
+          reader.reset();
           onDetected(isbn13);
         },
       )
-      .then((controls) => {
-        if (cancelled) controls.stop();
-        else {
-          controlsRef.current = controls;
-          setReady(true);
-        }
+      .then(() => {
+        if (!cancelled) setReady(true);
       })
       .catch(() => {
         if (!cancelled) setError('Tak dapat akses kamera. Sila benarkan akses kamera atau taip ISBN secara manual.');
@@ -48,7 +45,7 @@ export default function IsbnScanner({
 
     return () => {
       cancelled = true;
-      controlsRef.current?.stop();
+      reader.reset();
     };
   }, [onDetected]);
 

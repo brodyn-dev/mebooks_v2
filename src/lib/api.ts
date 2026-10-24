@@ -81,6 +81,47 @@ export async function addBookToShelf(
   return row as UserBook;
 }
 
+/**
+ * Salin buku dari rak orang lain ke rak saya (status "Nak baca", progres bermula dari 0).
+ * Rating, ulasan, nota dan progres TAK disalin. Buku yang dah ada dilangkau.
+ */
+export async function copyBooksToShelf(
+  userId: string,
+  sourceBooks: UserBook[],
+): Promise<{ added: number; skipped: number }> {
+  const mine = await fetchShelf(userId);
+  const onShelf = new Set(mine.map((ub) => ub.book_id));
+
+  const toInsert: { book_id: string; page_count: number }[] = [];
+  let skipped = 0;
+  for (const ub of sourceBooks) {
+    if (onShelf.has(ub.book_id)) {
+      skipped++;
+      continue;
+    }
+    onShelf.add(ub.book_id);
+    toInsert.push({ book_id: ub.book_id, page_count: ub.page_count || ub.book?.page_count || 0 });
+  }
+
+  let added = 0;
+  for (const part of chunks(toInsert, 100)) {
+    unwrap(
+      await supabase.from('user_books').insert(
+        part.map((r) => ({
+          user_id: userId,
+          book_id: r.book_id,
+          status: 'want',
+          current_page: 0,
+          page_count: r.page_count,
+          is_public: false,
+        })),
+      ),
+    );
+    added += part.length;
+  }
+  return { added, skipped };
+}
+
 export async function updateUserBook(
   id: string,
   patch: Partial<Pick<UserBook, 'page_count' | 'rating' | 'review' | 'is_public'>>,

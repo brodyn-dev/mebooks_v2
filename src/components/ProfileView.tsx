@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
+  copyBooksToShelf,
   fetchFollowState,
   fetchProfile,
   fetchShelf,
@@ -38,6 +39,7 @@ export default function ProfileView({
   const [form, setForm] = useState({ display_name: '', bio: '', is_private: false });
   const [busy, setBusy] = useState(false);
   const [listKind, setListKind] = useState<'followers' | 'following' | null>(null);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   const load = async () => {
     setError(null);
@@ -68,6 +70,24 @@ export default function ProfileView({
       setFollows(await fetchFollowState(user.id, profileId));
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyShelf = async () => {
+    if (!user || !shelf) return;
+    setBusy(true);
+    setCopyMsg(null);
+    try {
+      const { added, skipped } = await copyBooksToShelf(user.id, shelf);
+      setCopyMsg(
+        added > 0
+          ? `✅ ${added} buku disalin ke rak kau${skipped ? ` (${skipped} dah ada, dilangkau)` : ''}.`
+          : `Semua ${skipped} buku dah ada dalam rak kau.`,
+      );
+    } catch (err: any) {
+      setCopyMsg(`Gagal salin: ${err.message || 'ralat'}`);
     } finally {
       setBusy(false);
     }
@@ -172,7 +192,20 @@ export default function ProfileView({
             🔒 Akaun ini privat. Ikut untuk lihat rak dan aktiviti mereka.
           </div>
         ) : (
-          <ShelfView books={shelf} onOpen={onOpenBook} onAdd={isMe ? onAdd : undefined} readOnly={!isMe} exportUser={isMe ? { id: profile.id, username: profile.username } : undefined} />
+          <>
+            {!isMe && shelf.length > 0 && (
+              <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-600">
+                  Nak buku yang sama dalam rak kau? Salin buku ini ke rak kau sebagai &quot;Nak baca&quot;. Progres dan nota kau kekal milik kau.
+                </p>
+                <button className="btn-primary flex-shrink-0" disabled={busy} onClick={copyShelf}>
+                  📥 Salin ke rak saya
+                </button>
+              </div>
+            )}
+            {copyMsg && <p className="text-sm text-slate-700">{copyMsg}</p>}
+            <ShelfView books={shelf} onOpen={onOpenBook} onAdd={isMe ? onAdd : undefined} readOnly={!isMe} exportUser={isMe ? { id: profile.id, username: profile.username } : undefined} />
+          </>
         )}
       </section>
     </div>

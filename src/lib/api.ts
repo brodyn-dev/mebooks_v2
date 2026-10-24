@@ -113,7 +113,8 @@ export async function copyBooksToShelf(
           status: 'want',
           current_page: 0,
           page_count: r.page_count,
-          is_public: false,
+          // Ikut keadaan buku asal (awam kerana hanya buku yang boleh dilihat disalin)
+          is_public: true,
         })),
       ),
     );

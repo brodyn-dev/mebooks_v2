@@ -150,7 +150,7 @@ export default function AddBookModal({
     return (
       <Modal title="Buku tidak dijumpai" onClose={onClose}>
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">ISBN <span className="font-mono">{step.isbn13}</span> tiada dalam Google Books atau Open Library. Isi maklumat secara manual.</p>
+          <p className="text-sm text-slate-600">ISBN <span className="font-mono">{step.isbn13}</span> tiada dalam katalog MeBooks, Google Books, Open Library, Wikidata atau Internet Archive. Isi maklumat secara manual.</p>
           <button className="btn-primary w-full" onClick={() => { setManual({ ...EMPTY_MANUAL }); setManualIsbn(step.isbn13); setStep({ kind: 'manual' }); }}>
             Isi secara manual
           </button>

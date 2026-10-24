@@ -8,13 +8,6 @@ type Filter = 'all' | Status;
 type ViewMode = 'grid' | 'list';
 type SortKey = 'added_desc' | 'added_asc' | 'title' | 'author';
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: 'Semua' },
-  { value: 'reading', label: '📖 Sedang baca' },
-  { value: 'want', label: '📋 Nak baca' },
-  { value: 'finished', label: '✅ Dah habis' },
-];
-
 const SORTS: { value: SortKey; label: string }[] = [
   { value: 'added_desc', label: 'Terbaru ditambah' },
   { value: 'added_asc', label: 'Paling lama ditambah' },
@@ -148,38 +141,35 @@ export default function ShelfView({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-4 gap-2 sm:gap-3">
-        {[
-          { label: 'Jumlah', value: books.length, cls: 'text-slate-900' },
-          { label: 'Sedang baca', value: counts.reading, cls: 'text-blue-600' },
-          { label: 'Nak baca', value: counts.want, cls: 'text-amber-600' },
-          { label: 'Dah habis', value: counts.finished, cls: 'text-emerald-600' },
-        ].map((s) => (
-          <div key={s.label} className="card p-3 text-center">
-            <div className={`text-xl font-bold ${s.cls}`}>{s.value}</div>
-            <div className="text-[11px] text-slate-500 sm:text-xs">{s.label}</div>
-          </div>
-        ))}
+      <div>
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          {[
+            { value: 'all' as Filter, label: 'Jumlah', count: books.length, cls: 'text-slate-900' },
+            { value: 'reading' as Filter, label: 'Sedang baca', count: counts.reading, cls: 'text-blue-600' },
+            { value: 'want' as Filter, label: 'Nak baca', count: counts.want, cls: 'text-amber-600' },
+            { value: 'finished' as Filter, label: 'Dah habis', count: counts.finished, cls: 'text-emerald-600' },
+          ].map((s) => {
+            const active = filter === s.value;
+            return (
+              <button
+                key={s.value}
+                onClick={() => setFilter(s.value)}
+                aria-pressed={active}
+                className={`card p-3 text-center transition hover:-translate-y-0.5 hover:shadow-md ${
+                  active ? 'ring-2 ring-indigo-500' : ''
+                }`}
+              >
+                <div className={`text-xl font-bold ${s.cls}`}>{s.count}</div>
+                <div className="text-[11px] text-slate-500 sm:text-xs">{s.label}</div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1.5 text-center text-[11px] text-slate-400">Tekan kotak untuk tapis rak</p>
       </div>
 
       <div className="space-y-3">
         <input className="input" placeholder="Cari tajuk, penulis, genre…" value={query} onChange={(e) => setQuery(e.target.value)} />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="-mx-4 flex flex-1 gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                  filter === f.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-slate-300'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <select

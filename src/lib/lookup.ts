@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export interface BookLookup {
   title: string;
   authors: string;
@@ -11,23 +13,67 @@ export interface BookLookup {
 
 const TIMEOUT_MS = 8000;
 
+/** Ralat sambungan (timeout, offline). Berbeza dengan "buku tak wujud". */
+class NetworkError extends Error {}
+
 async function getJson(url: string): Promise<any | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) return null;
+    if (!res.ok) return null; // 404 dll: buku tak wujud di sumber ini
     return await res.json();
   } catch {
-    return null;
+    throw new NetworkError('sambungan gagal');
   } finally {
     clearTimeout(timer);
   }
 }
 
-/** Cari buku ikut ISBN-13: Google Books dahulu, kemudian Open Library. */
+/**
+ * Cari buku ikut ISBN-13:
+ * 1) Katalog MeBooks (buku yang user lain dah tambah)
+ * 2) Google Books
+ * 3) Open Library
+ * Kalau semua gagal kerana sambungan, lempar ralat (bukan "tak jumpa").
+ */
 export async function lookupByIsbn(isbn13: string): Promise<BookLookup | null> {
-  return (await fromGoogle(isbn13)) ?? (await fromOpenLibrary(isbn13));
+  const local = await fromCatalog(isbn13);
+  if (local) return local;
+
+  let networkFailed = false;
+  for (const source of [fromGoogle, fromOpenLibrary]) {
+    try {
+      const found = await source(isbn13);
+      if (found) return found;
+    } catch (err) {
+      if (err instanceof NetworkError) networkFailed = true;
+      else throw err;
+    }
+  }
+
+  if (networkFailed) throw new Error('Gagal sambung ke pangkalan data buku. Semak internet dan cuba lagi.');
+  return null;
+}
+
+async function fromCatalog(isbn: string): Promise<BookLookup | null> {
+  const res = await supabase
+    .from('books')
+    .select('title, authors, publisher, published_year, cover_url, description, genre, page_count')
+    .eq('isbn13', isbn)
+    .maybeSingle();
+  if (res.error || !res.data || !res.data.title) return null;
+  const b = res.data as Record<string, unknown>;
+  return {
+    title: String(b.title ?? ''),
+    authors: String(b.authors ?? ''),
+    publisher: String(b.publisher ?? ''),
+    published_year: String(b.published_year ?? ''),
+    cover_url: String(b.cover_url ?? ''),
+    description: String(b.description ?? ''),
+    genre: String(b.genre ?? ''),
+    page_count: Number(b.page_count) || 0,
+  };
 }
 
 async function fromGoogle(isbn: string): Promise<BookLookup | null> {

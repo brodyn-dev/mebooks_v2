@@ -41,6 +41,8 @@ export default function AddBookModal({
   const [manual, setManual] = useState<BookLookup>(EMPTY_MANUAL);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // ISBN yang dah dicuba tapi tak dijumpai: dikekalkan bila isi manual
+  const [manualIsbn, setManualIsbn] = useState<string | null>(null);
 
   const lookup = async (raw: string) => {
     setError(null);
@@ -50,7 +52,14 @@ export default function AddBookModal({
       return;
     }
     setStep({ kind: 'looking', isbn13 });
-    const info = await lookupByIsbn(isbn13);
+    let info: BookLookup | null;
+    try {
+      info = await lookupByIsbn(isbn13);
+    } catch (err: any) {
+      setError(err.message || 'Gagal cari buku');
+      setStep({ kind: 'choose' });
+      return;
+    }
     if (info && info.title) {
       setPages(info.page_count ? String(info.page_count) : '');
       setStep({ kind: 'preview', isbn13, info });
@@ -83,7 +92,7 @@ export default function AddBookModal({
       setError('Tajuk diperlukan');
       return;
     }
-    void save({ ...manual, title: manual.title.trim(), isbn13: null });
+    void save({ ...manual, title: manual.title.trim(), isbn13: manualIsbn });
   };
 
   // ---- Langkah: pilih cara ----
@@ -117,7 +126,7 @@ export default function AddBookModal({
             <ErrorBox message={error} />
           </div>
 
-          <button onClick={() => setStep({ kind: 'manual' })} className="w-full py-2 text-sm font-semibold text-indigo-600 hover:underline">
+          <button onClick={() => { setManualIsbn(null); setStep({ kind: 'manual' }); }} className="w-full py-2 text-sm font-semibold text-indigo-600 hover:underline">
             Tiada ISBN? Isi secara manual
           </button>
         </div>
@@ -142,7 +151,7 @@ export default function AddBookModal({
       <Modal title="Buku tidak dijumpai" onClose={onClose}>
         <div className="space-y-4">
           <p className="text-sm text-slate-600">ISBN <span className="font-mono">{step.isbn13}</span> tiada dalam Google Books atau Open Library. Isi maklumat secara manual.</p>
-          <button className="btn-primary w-full" onClick={() => { setManual({ ...EMPTY_MANUAL }); setStep({ kind: 'manual' }); }}>
+          <button className="btn-primary w-full" onClick={() => { setManual({ ...EMPTY_MANUAL }); setManualIsbn(step.isbn13); setStep({ kind: 'manual' }); }}>
             Isi secara manual
           </button>
           <button className="btn-ghost w-full" onClick={() => setStep({ kind: 'choose' })}>Cuba ISBN lain</button>
@@ -187,6 +196,9 @@ export default function AddBookModal({
   return (
     <Modal title="Tambah manual" onClose={onClose}>
       <form onSubmit={submitManual} className="space-y-3">
+        {manualIsbn && (
+          <p className="text-xs text-slate-500">ISBN <span className="font-mono">{manualIsbn}</span> akan disimpan bersama buku ini.</p>
+        )}
         <input className="input" placeholder="Tajuk *" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} required maxLength={300} />
         <input className="input" placeholder="Penulis" value={manual.authors} onChange={(e) => setManual({ ...manual, authors: e.target.value })} maxLength={300} />
         <input className="input" type="number" min={0} max={10000} placeholder="Jumlah muka surat" value={pages} onChange={(e) => setPages(e.target.value)} />
